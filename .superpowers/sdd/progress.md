@@ -12,3 +12,5 @@ Task 2: complete (commit d008e88, verify 10/10, spec clean). Important finding (
 Task 3: complete (commits 6e5dcc5..dc34bf6, verify 6/6, review clean; verbatim byte-match confirmed)
 Task 4: complete (commits ef47c7a..5611dd7, verify 8/8, review clean; junction-stop + class-split verified)
 Task 5: complete (commits d4913de..f1f4df5, verify 7/7, review clean; crossing rate 0.00%)
+Task 6: complete (commit 848d6da, verify 5/5, review clean; byte-identical transcription)
+Task 7: complete (commit e8c92b6, verify 7/7, review clean; no defects; TBASE calibration confirmed)
