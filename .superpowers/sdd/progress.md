@@ -15,3 +15,4 @@ Task 5: complete (commits d4913de..f1f4df5, verify 7/7, review clean; crossing r
 Task 6: complete (commit 848d6da, verify 5/5, review clean; byte-identical transcription)
 Task 7: complete (commit e8c92b6, verify 7/7, review clean; no defects; TBASE calibration confirmed)
 Task 7: complete (commits e8c92b6..7d9480b, verify 7/7, review clean; index.js untouched, no defects found; Minor: report header said In Progress while Results said PASS)
+Task 8: complete (commit fbba36a, verify 15/15, review clean; byte-identical; Minor note: empty passes omit their SVG group entirely)
