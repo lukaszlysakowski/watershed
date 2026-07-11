@@ -54,4 +54,12 @@ $ node .superpowers/sdd/task-3-verify.js
 **Result:** ✓ All tests passed. Runtime: ~2.4s at N=320.
 
 ### Commits
-*To be added*
+- **6e5dcc5** (main) Task 3: hydrology core — priority-flood, D8, accumulation
+  - index.js: DX/DY/DDIST tables, MinHeap class, priorityFlood/computeD8/computeAccum, runHydrology()
+  - task-3-verify.js: 6 tests covering drainage, flow descent, cycles, conservation, density scaling, determinism
+  - task-3-report.md: this report
+
+### Final Status
+✓ All 6 verification tests passed
+✓ Code committed and tracked
+✓ Ready for next task (Stream extraction, buildStreams)
