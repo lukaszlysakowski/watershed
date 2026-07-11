@@ -293,8 +293,153 @@ function buildStreams() {
         state.streams.push({ cls: runCls, pts: run });
     }
 }
-function buildBasins() {}
-function buildDivide() {}
+
+// basin root (outlet cell index) per cell, iterative with memoization
+function computeBasinRaw(dir, N) {
+    const raw = new Int32Array(N * N).fill(-1);
+    for (let i = 0; i < N * N; i++) {
+        if (raw[i] >= 0) continue;
+        const stack = [];
+        let j = i;
+        while (raw[j] < 0) {
+            stack.push(j);
+            if (dir[j] < 0) { raw[j] = j; break; }
+            j = dir[j];
+        }
+        const root = raw[j];
+        for (const s of stack) raw[s] = root;
+    }
+    return raw;
+}
+
+// union adjacent border outlets into single basin mouths
+function mergeOutlets(dir, N) {
+    const parent = new Map();
+    const find = i => {
+        while (parent.get(i) !== i) {
+            parent.set(i, parent.get(parent.get(i)));
+            i = parent.get(i);
+        }
+        return i;
+    };
+    const union = (a, b) => {
+        a = find(a); b = find(b);
+        if (a !== b) parent.set(Math.max(a, b), Math.min(a, b));
+    };
+    for (let i = 0; i < N * N; i++) if (dir[i] < 0) parent.set(i, i);
+    for (const i of [...parent.keys()]) {
+        const x = i % N, y = (i - x) / N;
+        for (let k = 0; k < 8; k++) {
+            const nx = x + DX[k], ny = y + DY[k];
+            if (nx < 0 || ny < 0 || nx >= N || ny >= N) continue;
+            const n = ny * N + nx;
+            if (parent.has(n)) union(i, n);
+        }
+    }
+    return find;
+}
+
+function buildBasins() {
+    const { N } = state.grid;
+    const raw = computeBasinRaw(state.dir, N);
+    const find = mergeOutlets(state.dir, N);
+    const groupOf = new Int32Array(N * N);
+    const count = new Map();
+    for (let i = 0; i < N * N; i++) {
+        const g = find(raw[i]);
+        groupOf[i] = g;
+        count.set(g, (count.get(g) || 0) + 1);
+    }
+    const groups = [...count.entries()].sort((a, b) => b[1] - a[1] || a[0] - b[0]);
+    state.keptCount = Math.min(state.kBasins, groups.length);
+    let keptIds = [];
+    if (ui.basins === 1) keptIds = groups.slice(0, state.keptCount).map(g => g[0]);
+    else if (ui.basins === 2) keptIds = groups.filter(g => g[1] >= 0.02 * N * N).map(g => g[0]);
+    const rank = new Map(keptIds.map((g, r) => [g, r]));
+    const label = new Int32Array(N * N).fill(-1);
+    for (let i = 0; i < N * N; i++) {
+        const r = rank.get(groupOf[i]);
+        if (r !== undefined) label[i] = r;
+    }
+    state.label = label;
+}
+
+function cornerPt(gp) {
+    const { cell } = state.grid;
+    return { x: PAD + gp[0] * cell, y: PAD + gp[1] * cell };
+}
+
+// chain undirected segments (integer or float endpoints) into polylines
+function chainSegments(segs, keyFn) {
+    const key = keyFn || ((x, y) => x + ',' + y);
+    const adj = new Map();
+    const addAdj = (k, si) => {
+        if (!adj.has(k)) adj.set(k, []);
+        adj.get(k).push(si);
+    };
+    segs.forEach((s, si) => {
+        addAdj(key(s[0], s[1]), si);
+        addAdj(key(s[2], s[3]), si);
+    });
+    const used = new Uint8Array(segs.length);
+    const chains = [];
+    for (let si = 0; si < segs.length; si++) {
+        if (used[si]) continue;
+        used[si] = 1;
+        const chain = [[segs[si][0], segs[si][1]], [segs[si][2], segs[si][3]]];
+        for (const end of [1, 0]) {
+            while (true) {
+                const tip = end ? chain[chain.length - 1] : chain[0];
+                const cands = (adj.get(key(tip[0], tip[1])) || []).filter(j => !used[j]);
+                if (!cands.length) break;
+                const j = cands[0];
+                used[j] = 1;
+                const s = segs[j];
+                const other = (Math.abs(s[0] - tip[0]) < 1e-9 && Math.abs(s[1] - tip[1]) < 1e-9)
+                    ? [s[2], s[3]] : [s[0], s[1]];
+                if (end) chain.push(other); else chain.unshift(other);
+            }
+        }
+        chains.push(chain);
+    }
+    return chains;
+}
+
+// corner-cutting smoothing, endpoints preserved
+function chaikin(pts) {
+    if (pts.length < 3) return pts;
+    const out = [pts[0]];
+    for (let i = 0; i < pts.length - 1; i++) {
+        const a = pts[i], b = pts[i + 1];
+        out.push({ x: a.x * 0.75 + b.x * 0.25, y: a.y * 0.75 + b.y * 0.25 });
+        out.push({ x: a.x * 0.25 + b.x * 0.75, y: a.y * 0.25 + b.y * 0.75 });
+    }
+    out.push(pts[pts.length - 1]);
+    return out;
+}
+
+function buildDivide() {
+    state.divide = [];
+    if (ui.basins === 0) return;
+    const { N } = state.grid;
+    const lab = state.label;
+    const segs = [];
+    for (let y = 0; y < N; y++) {
+        for (let x = 0; x < N - 1; x++) {
+            const a = lab[y * N + x], b = lab[y * N + x + 1];
+            if (a >= 0 && b >= 0 && a !== b) segs.push([x + 1, y, x + 1, y + 1]);
+        }
+    }
+    for (let y = 0; y < N - 1; y++) {
+        for (let x = 0; x < N; x++) {
+            const a = lab[y * N + x], b = lab[(y + 1) * N + x];
+            if (a >= 0 && b >= 0 && a !== b) segs.push([x, y + 1, x + 1, y + 1]);
+        }
+    }
+    state.divide = chainSegments(segs)
+        .map(ch => chaikin(chaikin(ch.map(cornerPt))));
+}
+
 function buildContours() {}
 
 function regenerate(newSeed) {
