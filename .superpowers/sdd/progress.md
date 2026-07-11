@@ -16,3 +16,4 @@ Task 6: complete (commit 848d6da, verify 5/5, review clean; byte-identical trans
 Task 7: complete (commit e8c92b6, verify 7/7, review clean; no defects; TBASE calibration confirmed)
 Task 7: complete (commits e8c92b6..7d9480b, verify 7/7, review clean; index.js untouched, no defects found; Minor: report header said In Progress while Results said PASS)
 Task 8: complete (commit fbba36a, verify 15/15, review clean; byte-identical; Minor note: empty passes omit their SVG group entirely)
+Task 9: complete (commits e896321..ba51e65, soak 2/2 — 5 seeds N=400, 8-19k verts, ~1.7s each, review clean)
