@@ -104,3 +104,24 @@ Key deliverables:
 - task-1-verify.js: Verify script with passing tests
 
 Next task: Task 2 will implement rollTerrain() pipeline hook.
+
+## Fix: canvas-container id restored (CSS wins over brief's canvas-holder id)
+
+**Issue:** The copied CSS in index.html targeted `#canvas-container`, but the container div was renamed to `canvas-holder` in Step 2, causing CSS rules for canvas scaling and background to never apply. This resulted in the 2170px canvas overflowing the viewport.
+
+**Resolution:**
+1. Changed container div ID from `canvas-holder` to `canvas-container` (index.html line 232)
+2. Changed p5 parent call from `c.parent('canvas-holder')` to `c.parent('canvas-container')` (index.js line 179)
+3. Verify output:
+```
+  ok  CS is 2170
+  ok  PAD is 87
+  ok  ui defaults
+  ok  regenerate(false) keeps seed
+  ok  jitterHash deterministic
+  ok  signature format
+
+6 passed, 0 failed
+```
+
+The CSS now applies correctly and the canvas scales within the viewport as intended.

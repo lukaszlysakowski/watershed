@@ -176,7 +176,7 @@ function exportPNG(scale) {}
 
 function setup() {
     const c = createCanvas(CS, CS);
-    c.parent('canvas-holder');
+    c.parent('canvas-container');
     pixelDensity(1);
     noLoop();
     setupControls();
