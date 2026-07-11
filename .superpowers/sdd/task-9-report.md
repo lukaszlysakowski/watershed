@@ -21,7 +21,7 @@
 ```
 
 ### Commits
-(to be tracked post-commit)
+- `e896321` Task 9: README + multi-seed soak
 
 ### Concerns
 None - all tests passed, timing well within budget.
