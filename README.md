@@ -43,3 +43,6 @@ Divide / Signature) for multi-pen plotting; PNG at 1x (2170²) and 4x (8680²).
 [second-reading](https://github.com/lukaszlysakowski/second-reading) ·
 [fold](https://github.com/lukaszlysakowski/fold) ·
 [field-script](https://github.com/lukaszlysakowski/field-script)
+
+Note: **randomize** rerolls the aesthetic controls (terrain, water, apparatus) with a new
+seed; Detail (grid resolution) and Wobble are deliberately left as you set them.
