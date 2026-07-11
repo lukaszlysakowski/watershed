@@ -122,7 +122,113 @@ function buildGrid() {
     state.grid = { N, cell };
     state.terr = terr;
 }
-function runHydrology() {}
+
+// --- Hydrology: priority-flood, D8 flow, accumulation ---
+
+const DX = [-1, 0, 1, -1, 1, -1, 0, 1];
+const DY = [-1, -1, -1, 0, 0, 1, 1, 1];
+const DDIST = [Math.SQRT2, 1, Math.SQRT2, 1, 1, Math.SQRT2, 1, Math.SQRT2];
+
+// Binary min-heap keyed by (height, insertion order) — deterministic pops.
+class MinHeap {
+    constructor() { this.k = []; this.s = []; this.v = []; this.seq = 0; }
+    size() { return this.k.length; }
+    push(key, val) {
+        this.k.push(key); this.s.push(this.seq++); this.v.push(val);
+        let i = this.k.length - 1;
+        while (i > 0) {
+            const p = (i - 1) >> 1;
+            if (this._less(i, p)) { this._swap(i, p); i = p; } else break;
+        }
+    }
+    pop() {
+        const top = this.v[0];
+        const last = this.k.length - 1;
+        this._swap(0, last);
+        this.k.pop(); this.s.pop(); this.v.pop();
+        let i = 0;
+        while (true) {
+            const l = 2 * i + 1, r = l + 1;
+            let m = i;
+            if (l < this.k.length && this._less(l, m)) m = l;
+            if (r < this.k.length && this._less(r, m)) m = r;
+            if (m === i) break;
+            this._swap(i, m); i = m;
+        }
+        return top;
+    }
+    _less(a, b) { return this.k[a] < this.k[b] || (this.k[a] === this.k[b] && this.s[a] < this.s[b]); }
+    _swap(a, b) {
+        [this.k[a], this.k[b]] = [this.k[b], this.k[a]];
+        [this.s[a], this.s[b]] = [this.s[b], this.s[a]];
+        [this.v[a], this.v[b]] = [this.v[b], this.v[a]];
+    }
+}
+
+// Barnes 2014 priority-flood: raise pits to spill level + EPS so every cell drains to the border.
+function priorityFlood(terr, N) {
+    const filled = new Float64Array(terr);
+    const visited = new Uint8Array(N * N);
+    let lo = Infinity, hi = -Infinity;
+    for (let i = 0; i < terr.length; i++) {
+        if (terr[i] < lo) lo = terr[i];
+        if (terr[i] > hi) hi = terr[i];
+    }
+    const EPS = Math.max(hi - lo, 1) * 1e-6;
+    const heap = new MinHeap();
+    const seed = i => { if (!visited[i]) { visited[i] = 1; heap.push(filled[i], i); } };
+    for (let x = 0; x < N; x++) { seed(x); seed((N - 1) * N + x); }
+    for (let y = 0; y < N; y++) { seed(y * N); seed(y * N + N - 1); }
+    while (heap.size()) {
+        const i = heap.pop();
+        const cx = i % N, cy = (i - cx) / N;
+        for (let k = 0; k < 8; k++) {
+            const nx = cx + DX[k], ny = cy + DY[k];
+            if (nx < 0 || ny < 0 || nx >= N || ny >= N) continue;
+            const n = ny * N + nx;
+            if (visited[n]) continue;
+            visited[n] = 1;
+            filled[n] = Math.max(terr[n], filled[i] + EPS);
+            heap.push(filled[n], n);
+        }
+    }
+    return filled;
+}
+
+function computeD8(filled, N) {
+    const dir = new Int32Array(N * N).fill(-1);
+    for (let y = 0; y < N; y++) {
+        for (let x = 0; x < N; x++) {
+            const i = y * N + x;
+            let best = -1, bestSlope = 0;
+            for (let k = 0; k < 8; k++) {
+                const nx = x + DX[k], ny = y + DY[k];
+                if (nx < 0 || ny < 0 || nx >= N || ny >= N) continue;
+                const n = ny * N + nx;
+                const slope = (filled[i] - filled[n]) / DDIST[k];
+                if (slope > bestSlope) { bestSlope = slope; best = n; }
+            }
+            dir[i] = best; // -1 only where no strictly lower neighbor exists (border outlets)
+        }
+    }
+    return dir;
+}
+
+function computeAccum(filled, dir, N) {
+    const order = Array.from({ length: N * N }, (_, i) => i)
+        .sort((a, b) => filled[b] - filled[a] || a - b);
+    const accum = new Float64Array(N * N).fill(1);
+    for (const i of order) if (dir[i] >= 0) accum[dir[i]] += accum[i];
+    return accum;
+}
+
+function runHydrology() {
+    const { N } = state.grid;
+    state.filled = priorityFlood(state.terr, N);
+    state.dir = computeD8(state.filled, N);
+    state.accum = computeAccum(state.filled, state.dir, N);
+    state.threshold = Math.max(8, Math.round(TBASE[ui.density] * (N * N) / 160000));
+}
 function buildStreams() {}
 function buildBasins() {}
 function buildDivide() {}
