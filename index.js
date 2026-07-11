@@ -229,7 +229,70 @@ function runHydrology() {
     state.accum = computeAccum(state.filled, state.dir, N);
     state.threshold = Math.max(8, Math.round(TBASE[ui.density] * (N * N) / 160000));
 }
-function buildStreams() {}
+
+function cellPt(i) {
+    const { N, cell } = state.grid;
+    const x = i % N, y = (i - x) / N;
+    return {
+        x: PAD + (x + 0.5) * cell + jitterHash(i, 1) * 0.7 * cell,
+        y: PAD + (y + 0.5) * cell + jitterHash(i, 2) * 0.7 * cell
+    };
+}
+
+function buildStreams() {
+    const { N } = state.grid;
+    const acc = state.accum, dir = state.dir;
+    const T = state.threshold;
+    const clsOf = a => a >= 40 * T ? 2 : a >= 8 * T ? 1 : 0;
+    const isChan = i => acc[i] >= T;
+
+    // channel heads: channel cells with no upstream channel neighbor
+    const heads = [];
+    for (let y = 0; y < N; y++) {
+        for (let x = 0; x < N; x++) {
+            const i = y * N + x;
+            if (!isChan(i)) continue;
+            let hasUp = false;
+            for (let k = 0; k < 8 && !hasUp; k++) {
+                const nx = x + DX[k], ny = y + DY[k];
+                if (nx < 0 || ny < 0 || nx >= N || ny >= N) continue;
+                const n = ny * N + nx;
+                if (isChan(n) && dir[n] === i) hasUp = true;
+            }
+            if (!hasUp) heads.push(i);
+        }
+    }
+    heads.sort((a, b) => acc[b] - acc[a] || a - b); // main stems first
+
+    const drawn = new Uint8Array(N * N);
+    state.streams = [];
+    for (const h of heads) {
+        if (drawn[h]) continue;
+        const cells = [h];
+        let i = h;
+        while (dir[i] >= 0) {
+            const nx = dir[i];
+            cells.push(nx);
+            if (drawn[nx]) break; // junction with an already-drawn channel
+            i = nx;
+        }
+        for (const c of cells) drawn[c] = 1;
+        if (cells.length < 2) continue;
+        // split into constant-class runs; an edge takes its upstream cell's class
+        let runCls = clsOf(acc[cells[0]]);
+        let run = [cellPt(cells[0])];
+        for (let e = 0; e < cells.length - 1; e++) {
+            const cls = clsOf(acc[cells[e]]);
+            if (cls !== runCls) {
+                state.streams.push({ cls: runCls, pts: run });
+                run = [run[run.length - 1]];
+                runCls = cls;
+            }
+            run.push(cellPt(cells[e + 1]));
+        }
+        state.streams.push({ cls: runCls, pts: run });
+    }
+}
 function buildBasins() {}
 function buildDivide() {}
 function buildContours() {}
